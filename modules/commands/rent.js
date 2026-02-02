@@ -1,218 +1,242 @@
-/**
- * RENT BOT SYSTEM – VIP VERSION
- * Author: Riyuso Tegk
- * Style: Mirai Custom
- */
-
 const fs = require("fs");
 const path = require("path");
 const moment = require("moment-timezone");
 const cron = require("node-cron");
-const crypto = require("crypto");
 
 const TZ = "Asia/Ho_Chi_Minh";
 const BOT_NAME = "𝓘𝓷𝓼𝓪𝓰𝔂𝓸𝓴 𝓑𝓸𝓽";
 const ADMIN_FB = "https://www.facebook.com/share/1AqqydaH5m/";
 
-const DATA_DIR = path.join(__dirname, "data");
-const DATA_PATH = path.join(DATA_DIR, "rent.json");
+const DATA_PATH = path.join(__dirname, "rent_data.json");
+if (!fs.existsSync(DATA_PATH)) fs.writeFileSync(DATA_PATH, "[]", "utf8");
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-if (!fs.existsSync(DATA_PATH)) fs.writeFileSync(DATA_PATH, JSON.stringify({
-  rents: [],
-  approve: []
-}, null, 2));
+let rents = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+const save = () =>
+  fs.writeFileSync(DATA_PATH, JSON.stringify(rents, null, 2), "utf8");
 
-const loadData = () => JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
-const saveData = data => fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
+/* =======================
+  TIỆN ÍCH
+======================= */
+const daysLeft = end => {
+  return Math.ceil(
+    (moment(end, "DD/MM/YYYY").endOf("day").valueOf() -
+      moment().tz(TZ).valueOf()) /
+      86400000
+  );
+};
+
+const parseTime = input => {
+  if (!input) return null;
+  if (/^\d+$/.test(input)) return parseInt(input);      // VD: 40
+  if (/^\d+T$/i.test(input)) return parseInt(input) * 30; // VD: 1T
+  return null;
+};
 
 const genKey = () =>
-  "RENT-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+  "RB-" + Math.random().toString(36).slice(2, 10).toUpperCase();
 
-const daysBetween = end =>
-  Math.ceil(
-    (moment(end, "DD/MM/YYYY").endOf("day") -
-      moment().tz(TZ)) / 86400000
-  );
-
-const addDays = (base, days) =>
-  moment(base, "DD/MM/YYYY").add(days, "days").format("DD/MM/YYYY");
-
+/* =======================
+  CONFIG
+======================= */
 module.exports.config = {
   name: "rent",
-  version: "5.0.0",
+  version: "4.0.0",
   hasPermssion: 3,
-  credits: "TEGK",
-  description: "Hệ thống thuê bot VIP",
-  commandCategory: "ADMIN",
-  usages: "rent add | info | list | remove | bill",
+  credits: "full-rent-final",
+  description: "Thuê bot + gia hạn + bill + auto notify 00h",
+  commandCategory: "Admin",
+  usePrefix: false,
+  usages: "add | list | bill | remove | giahan",
   cooldowns: 2
 };
 
-module.exports.handleReaction = async ({ api, event, handleReaction }) => {
-  if (event.userID != handleReaction.adminID) return;
-  if (event.reaction != "❤") return;
-
-  const data = loadData();
-  data.approve.push(handleReaction.threadID);
-  saveData(data);
-
-  api.sendMessage(
-    "✅ Nhóm đã được ADMIN duyệt.\n❌ Tuy nhiên CHƯA THUÊ BOT.\n👉 Dùng !rent add để thuê.",
-    handleReaction.threadID
-  );
-};
-
+/* =======================
+  MAIN
+======================= */
 module.exports.run = async ({ api, event, args }) => {
-  const send = msg => api.sendMessage(msg, event.threadID);
-  const data = loadData();
-  const isAdminBot = global.config.ADMINBOT.includes(event.senderID);
+  const send = msg =>
+    api.sendMessage(msg, event.threadID, event.messageID);
+
+  if (!global.config.ADMINBOT.includes(event.senderID))
+    return send("❌ Chỉ admin bot mới dùng được lệnh này");
+
   const sub = args[0];
 
-  // ===== CHECK APPROVE =====
-  if (!isAdminBot && !data.approve.includes(event.threadID))
-    return send(
-      "⛔ Nhóm chưa được duyệt.\n📌 Bot đã báo admin, vui lòng chờ duyệt."
-    );
-
-  // ===== RENT ADD =====
+  /* ===== rent add ===== */
   if (sub === "add") {
-    if (!isAdminBot)
-      return send("❌ Chỉ admin bot được thuê");
+    const timeRaw = args[1];
+    const days = parseTime(timeRaw);
+    if (!days || days <= 0)
+      return send("❎ Dùng: rent add <số ngày | 1T | 2T>");
 
-    const value = args[1];
-    if (!value) return send("❎ !rent add <1T | số ngày>");
+    const threadID = event.threadID;
+    let item = rents.find(r => r.threadID == threadID);
 
-    let addDaysCount = 0;
-
-    if (/^\d+T$/i.test(value)) {
-      const month = parseInt(value);
-      addDaysCount = month * 30;
-    } else if (/^\d+$/.test(value)) {
-      addDaysCount = parseInt(value);
-    } else {
-      return send("❎ Sai định dạng. Ví dụ: !rent add 1T hoặc !rent add 40");
-    }
-
-    let item = data.rents.find(r => r.threadID == event.threadID);
-    const today = moment().tz(TZ).format("DD/MM/YYYY");
+    const now = moment().tz(TZ);
+    let end;
 
     if (!item) {
+      end = now.clone().add(days, "days");
       item = {
-        threadID: event.threadID,
-        start: today,
-        end: addDays(today, addDaysCount),
-        bill: []
+        threadID,
+        start: now.format("DD/MM/YYYY"),
+        end: end.format("DD/MM/YYYY"),
+        key: genKey(),
+        history: []
       };
-      data.rents.push(item);
+      rents.push(item);
     } else {
-      const base = daysBetween(item.end) > 0 ? item.end : today;
-      item.end = addDays(base, addDaysCount);
+      const curEnd = moment(item.end, "DD/MM/YYYY");
+      end = curEnd.isAfter(now)
+        ? curEnd.add(days, "days")
+        : now.clone().add(days, "days");
+      item.end = end.format("DD/MM/YYYY");
     }
 
-    const key = genKey();
-    item.bill.push({
-      key,
-      days: addDaysCount,
-      time: moment().tz(TZ).format("HH:mm DD/MM/YYYY")
+    item.history.push({
+      type: "ADD",
+      days,
+      time: now.format("HH:mm DD/MM/YYYY")
     });
 
-    saveData(data);
+    save();
 
     return send(
-`╔═══════════════╗
-      🧾 BILL THUÊ BOT
-╚═══════════════╝
-➕ Gia hạn: ${addDaysCount} ngày
-🗓️ HSD mới: ${item.end}
-🔑 Key: ${key}
-👤 Admin: ${event.senderID}
-════════════════
-`
+`✅ THUÊ BOT THÀNH CÔNG
+━━━━━━━━━━━━━━
+🤖 Bot: ${BOT_NAME}
+⏳ +${days} ngày
+🗓️ Hết hạn: ${item.end}
+🔑 Key bill: ${item.key}
+━━━━━━━━━━━━━━`
     );
   }
 
-  // ===== RENT INFO =====
-  if (sub === "info") {
-    const item = data.rents.find(r => r.threadID == event.threadID);
-    if (!item) return send("❌ Nhóm chưa thuê bot");
-
-    const left = daysBetween(item.end);
-    return send(
-`📌 THÔNG TIN THUÊ BOT
-🗓️ Bắt đầu: ${item.start}
-⏰ Hết hạn: ${item.end}
-⌛ Còn lại: ${left > 0 ? left + " ngày" : "HẾT HẠN"}
-`
-    );
-  }
-
-  // ===== RENT LIST =====
+  /* ===== rent list ===== */
   if (sub === "list") {
-    if (!isAdminBot) return;
-    if (!data.rents.length) return send("❌ Không có nhóm thuê bot");
+    if (!rents.length) return send("❎ Chưa có nhóm thuê bot");
 
-    let msg = "📋 DANH SÁCH THUÊ BOT\n\n";
-    data.rents.forEach((r, i) => {
-      msg += `${i + 1}. ${r.threadID} | HSD: ${r.end}\n`;
+    let msg = "[ DANH SÁCH THUÊ BOT ]\n\n";
+    rents.forEach((r, i) => {
+      const d = daysLeft(r.end);
+      msg += `${i + 1}. ${r.threadID} | ${
+        d > 0 ? "Còn " + d + " ngày" : "Hết hạn"
+      }\n`;
     });
     return send(msg);
   }
 
-  // ===== RENT REMOVE =====
-  if (sub === "remove") {
-    if (!isAdminBot) return;
-    const stt = parseInt(args[1]);
-    if (!stt || !data.rents[stt - 1]) return send("❎ STT sai");
-
-    data.rents.splice(stt - 1, 1);
-    saveData(data);
-    return send("✅ Đã xoá thuê bot");
-  }
-
-  // ===== BILL LIST =====
+  /* ===== rent bill ===== */
   if (sub === "bill") {
-    const item = data.rents.find(r => r.threadID == event.threadID);
-    if (!item) return send("❌ Chưa có bill");
+    const item = rents.find(r => r.threadID == event.threadID);
+    if (!item) return send("❎ Nhóm này chưa thuê bot");
 
-    let msg = "🧾 LỊCH SỬ BILL\n\n";
-    item.bill.forEach((b, i) => {
-      msg += `${i + 1}. ${b.days} ngày | ${b.time}\n🔑 ${b.key}\n\n`;
+    let msg =
+`🧾 BILL THUÊ BOT
+━━━━━━━━━━━━━━
+🤖 Bot: ${BOT_NAME}
+🗓️ Từ: ${item.start}
+⏰ Đến: ${item.end}
+⌛ Còn: ${Math.max(daysLeft(item.end), 0)} ngày
+🔑 Key: ${item.key}
+
+📜 LỊCH SỬ:
+`;
+
+    item.history.forEach((h, i) => {
+      msg += `${i + 1}. ${h.type} +${h.days} ngày | ${h.time}\n`;
     });
+
+    msg +=
+`━━━━━━━━━━━━━━
+📌 Gia hạn tại admin:
+${ADMIN_FB}`;
+
     return send(msg);
+  }
+
+  /* ===== rent remove ===== */
+  if (sub === "remove") {
+    const idx = parseInt(args[1]) - 1;
+    if (isNaN(idx) || !rents[idx])
+      return send("❎ STT không hợp lệ");
+
+    rents.splice(idx, 1);
+    save();
+    return send("✅ Đã xóa thuê bot");
+  }
+
+  /* ===== rent giahan ===== */
+  if (sub === "giahan") {
+    const days = parseTime(args[1]);
+    if (!days) return send("❎ Dùng: rent giahan <ngày | 1T>");
+
+    const item = rents.find(r => r.threadID == event.threadID);
+    if (!item) return send("❎ Nhóm chưa thuê bot");
+
+    const now = moment().tz(TZ);
+    let end = moment(item.end, "DD/MM/YYYY");
+    end = end.isAfter(now) ? end.add(days, "days") : now.add(days, "days");
+
+    item.end = end.format("DD/MM/YYYY");
+    item.history.push({
+      type: "GIAHAN",
+      days,
+      time: now.format("HH:mm DD/MM/YYYY")
+    });
+
+    save();
+    return send(`✅ Gia hạn thành công +${days} ngày`);
   }
 
   return send(
-`📖 HƯỚNG DẪN RENT
-!rent add 1T
-!rent add 40
-!rent info
-!rent bill
-`
+`📖 HƯỚNG DẪN
+rent add <40 | 1T>
+rent list
+rent bill
+rent giahan <ngày | 1T>
+rent remove <stt>`
   );
 };
 
-/**
- * ===== CRON SET NAME 00:00 =====
- */
+/* =======================
+  CRON 00:00 – AUTO NHẮN
+======================= */
 cron.schedule(
   "0 0 * * *",
   async () => {
     const api = global.client.api;
-    const botID = api.getCurrentUserID();
-    const data = loadData();
 
-    for (const r of data.rents) {
-      const left = daysBetween(r.end);
-      if (left <= 0) continue;
+    for (const r of rents) {
+      const left = daysLeft(r.end);
 
-      const nick = `『 ! 』 ⪼ ${BOT_NAME} | HSD: ${left} ngày`;
       try {
-        await api.changeNickname(nick, r.threadID, botID);
+        if (left > 0) {
+          await api.sendMessage(
+`⏰ THÔNG BÁO THUÊ BOT
+━━━━━━━━━━━━━━
+🤖 Bot: ${BOT_NAME}
+📅 Còn lại: ${left} ngày
+🗓️ Hết hạn: ${r.end}
+━━━━━━━━━━━━━━`,
+            r.threadID
+          );
+        } else {
+          await api.sendMessage(
+`❌ BOT ĐÃ HẾT HẠN
+━━━━━━━━━━━━━━
+⛔ Bot hiện đã hết hạn sử dụng
+📌 Gia hạn tại admin:
+${ADMIN_FB}
+━━━━━━━━━━━━━━`,
+            r.threadID
+          );
+        }
       } catch {}
     }
 
-    console.log("[RENT] Set name 00:00 xong");
+    save();
+    console.log("✔ Rent auto notify 00:00 chạy xong");
   },
   { timezone: TZ }
 );
