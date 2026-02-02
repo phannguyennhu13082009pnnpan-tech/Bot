@@ -1,229 +1,243 @@
+module.exports.config = {
+  name: "tutien",
+  version: "1.0.0",
+  hasPermssion: 0,
+  credits: "Full by ChatGPT",
+  description: "Game Tu Tiên full endgame",
+  commandCategory: "Game",
+  usages: "[menu|info|tuvi|train|boss|pvp|shop|buy|equip|reset]",
+  cooldowns: 2
+};
+
 const fs = require("fs");
-const path = require("path");
+const path = __dirname + "/cache/tutien.json";
 
-const DATA_PATH = path.join(__dirname, "cache", "tutien.json");
-if (!fs.existsSync(DATA_PATH)) fs.writeFileSync(DATA_PATH, "{}");
+let data = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path)) : {};
 
-let users = JSON.parse(fs.readFileSync(DATA_PATH));
-const save = () => fs.writeFileSync(DATA_PATH, JSON.stringify(users, null, 2));
+function save() {
+  fs.writeFileSync(path, JSON.stringify(data, null, 2));
+}
 
-/* ================== CONFIG ================== */
+// ===== SHOP =====
+const SHOP = {
+  thietkiem: { name: "Thiết Kiếm", atk: 10, price: 100, slot: "kiem" },
+  thanhkiem: { name: "Thanh Kiếm", atk: 18, price: 180, slot: "kiem" },
+  huyetkiem: { name: "Huyết Kiếm", atk: 30, crit: 5, price: 350, slot: "kiem" },
+  truongtien: { name: "Tru Tiên Kiếm", atk: 80, crit: 20, lifesteal: 10, price: 2000, slot: "kiem" },
 
-const HE_CANH = [
+  vaigiap: { name: "Vải Giáp", def: 8, price: 80, slot: "giap" },
+  satgiap: { name: "Sắt Giáp", def: 18, price: 200, slot: "giap" },
+  thanlonggiap: { name: "Thần Long Giáp", def: 60, hp: 50, price: 1200, slot: "giap" },
+
+  tutiendan: { name: "Tu Vi Đan", price: 200, type: "dan" },
+  dotphadan: { name: "Đột Phá Đan", price: 500, type: "dan" }
+};
+
+// ===== BOSS =====
+const BOSSES = [
+  { name: "Hắc Lang", hp: 100, atk: 10, reward: 100 },
+  { name: "Huyết Ma", hp: 300, atk: 25, reward: 300 },
+  { name: "Ma Tôn", hp: 800, atk: 50, reward: 800 }
+];
+
+// ===== TU VI =====
+const LEVELS = [
+  "Phàm Nhân",
   "Luyện Khí",
   "Trúc Cơ",
   "Kim Đan",
   "Nguyên Anh",
   "Hóa Thần",
-  "Luyện Hư",
-  "Hợp Thể",
   "Độ Kiếp",
   "Đại Thừa"
 ];
 
-const QUAI = [
-  { name: "Lang Yêu", hp: 50, exp: 20 },
-  { name: "Hắc Hùng", hp: 120, exp: 50 },
-  { name: "Huyết Ma", hp: 300, exp: 120 }
-];
-
-const BOSS = [
-  { name: "Ma Tôn", hp: 800, exp: 400 },
-  { name: "Thiên Ma", hp: 1500, exp: 900 }
-];
-
-const SHOP = {
-  kiếm: { name: "Huyết Kiếm", atk: 20, price: 200 },
-  giáp: { name: "Hộ Thân Giáp", def: 15, price: 180 }
-};
-
-/* ================== INIT USER ================== */
-
-function init(uid, name) {
-  if (!users[uid]) {
-    users[uid] = {
-      name,
-      vip: false,
+// ===== INIT USER =====
+function init(uid) {
+  if (!data[uid]) {
+    data[uid] = {
+      level: 0,
       tuvi: 0,
+      vang: 500,
       hp: 100,
       atk: 10,
       def: 5,
-      canh: 0,
-      vang: 100,
-      trangbi: {},
-      dead: false
+      equip: { kiem: null, giap: null },
+      stats: { crit: 0, lifesteal: 0 },
+      lastTrain: 0
     };
     save();
   }
 }
 
-function getCanh(u) {
-  return HE_CANH[u.canh] || "Phàm Nhân";
-}
-
-/* ================== MIRAI CONFIG ================== */
-
-module.exports.config = {
-  name: "tutien",
-  version: "1.0.0",
-  hasPermssion: 0,
-  credits: "TEGK",
-  description: "Game tu tiên full",
-  commandCategory: "Game",
-  usages: "menu",
-  cooldowns: 2
-};
-
-/* ================== MAIN ================== */
-
 module.exports.run = async ({ api, event, args }) => {
   const uid = event.senderID;
-  const name = event.senderName || "Tu Sĩ";
-  init(uid, name);
+  init(uid);
+  const u = data[uid];
 
-  const u = users[uid];
-  const send = msg => api.sendMessage(msg, event.threadID);
-
+  const send = msg => api.sendMessage(msg, event.threadID, event.messageID);
   const cmd = args[0];
 
-  /* ===== MENU ===== */
+  // ===== MENU =====
   if (!cmd || cmd === "menu") {
     return send(
-`🧘‍♂️ GAME TU TIÊN
-━━━━━━━━━━━━━━
+`🧘‍♂️ TU TIÊN MENU
+━━━━━━━━━━━━
 • !tutien info
 • !tutien train
-• !tutien quai
 • !tutien boss
 • !tutien pvp @tag
 • !tutien shop
 • !tutien buy <item>
-• !tutien vip
-━━━━━━━━━━━━━━`
+• !tutien equip
+• !tutien reset`
     );
   }
 
-  /* ===== INFO ===== */
+  // ===== INFO =====
   if (cmd === "info") {
     return send(
-`📜 THÔNG TIN TU SĨ
-━━━━━━━━━━━━━━
-👤 ${u.name}
-⚡ Cảnh giới: ${getCanh(u)}
-🔮 Tu vi: ${u.tuvi}
+`📜 THÔNG TIN TU TIÊN
+━━━━━━━━━━━━
+Cảnh giới: ${LEVELS[u.level]}
+Tu vi: ${u.tuvi}
+Vàng: ${u.vang}
+
 ❤️ HP: ${u.hp}
-🗡 ATK: ${u.atk}
+⚔️ ATK: ${u.atk}
 🛡 DEF: ${u.def}
-💰 Vàng: ${u.vang}
-👑 VIP: ${u.vip ? "Có" : "Không"}
-━━━━━━━━━━━━━━`
+🎯 Crit: ${u.stats.crit}%
+🩸 Hút máu: ${u.stats.lifesteal}%`
     );
   }
 
-  /* ===== TRAIN ===== */
+  // ===== TRAIN =====
   if (cmd === "train") {
-    if (u.dead) return send("☠️ Đã chết, không tu luyện được");
-    const gain = u.vip ? 30 : 15;
+    const now = Date.now();
+    if (now - u.lastTrain < 60000)
+      return send("⏳ Chờ 60s mới train tiếp");
+
+    const gain = Math.floor(Math.random() * 50) + 20;
     u.tuvi += gain;
+    u.lastTrain = now;
 
-    if (u.tuvi >= (u.canh + 1) * 100) {
-      u.canh++;
+    if (u.tuvi >= (u.level + 1) * 500 && u.level < LEVELS.length - 1) {
       u.tuvi = 0;
-      send(`⚡ Đột phá thành công ➜ ${getCanh(u)}`);
+      u.level++;
+      u.atk += 5;
+      u.def += 3;
+      u.hp += 20;
+      send(`✨ ĐỘT PHÁ! Lên ${LEVELS[u.level]}`);
     }
 
     save();
-    return send(`🧘 Tu luyện +${gain} tu vi`);
+    return send(`🧘‍♂️ Tu luyện +${gain} tu vi`);
   }
 
-  /* ===== ĐÁNH QUÁI ===== */
-  if (cmd === "quai") {
-    const q = QUAI[Math.floor(Math.random() * QUAI.length)];
-    if (u.atk + Math.random() * 20 < q.hp) {
-      u.hp -= 20;
-      if (u.hp <= 0) {
-        u.dead = true;
-        u.tuvi = Math.max(0, u.tuvi - 50);
-        save();
-        return send("☠️ Thua quái, trọng thương");
-      }
-      save();
-      return send("⚔️ Đánh quái thất bại");
-    }
-
-    u.tuvi += q.exp;
-    u.vang += 30;
-    save();
-    return send(`⚔️ Hạ ${q.name} ➜ +${q.exp} tu vi`);
-  }
-
-  /* ===== BOSS ===== */
-  if (cmd === "boss") {
-    const b = BOSS[Math.floor(Math.random() * BOSS.length)];
-    if (u.atk + Math.random() * 50 < b.hp) {
-      u.dead = true;
-      u.tuvi = Math.max(0, u.tuvi - 100);
-      save();
-      return send(`💀 Bị ${b.name} đánh bại`);
-    }
-
-    u.tuvi += b.exp;
-    u.vang += 100;
-
-    if (Math.random() < 0.5) {
-      u.trangbi.kiem = SHOP.kiếm;
-      u.atk += 20;
-    }
-
-    save();
-    return send(`🔥 Hạ ${b.name} ➜ +${b.exp} tu vi`);
-  }
-
-  /* ===== PVP ===== */
-  if (cmd === "pvp") {
-    const target = Object.keys(event.mentions)[0];
-    if (!target || !users[target]) return send("❌ Tag đối thủ");
-
-    const o = users[target];
-    if (u.atk + Math.random() * 30 < o.atk) {
-      u.tuvi = Math.max(0, u.tuvi - 50);
-      save();
-      return send("❌ Thua PVP");
-    }
-
-    u.tuvi += 50;
-    save();
-    return send("🏆 Thắng PVP");
-  }
-
-  /* ===== SHOP ===== */
+  // ===== SHOP =====
   if (cmd === "shop") {
-    return send(
-`🛒 SHOP
-━━━━━━━━━━━━━━
-• kiếm – 200 vàng
-• giáp – 180 vàng
-Dùng: !tutien buy <item>`
-    );
+    let msg = "🛒 SHOP TU TIÊN\n━━━━━━━━━━━━\n";
+    for (let k in SHOP) {
+      msg += `• ${k} | ${SHOP[k].name} | 💰 ${SHOP[k].price}\n`;
+    }
+    return send(msg);
   }
 
+  // ===== BUY =====
   if (cmd === "buy") {
-    const item = SHOP[args[1]];
+    const key = args[1];
+    const item = SHOP[key];
     if (!item) return send("❌ Item không tồn tại");
     if (u.vang < item.price) return send("❌ Không đủ vàng");
 
     u.vang -= item.price;
-    if (item.atk) u.atk += item.atk;
-    if (item.def) u.def += item.def;
-    save();
 
-    return send(`✅ Mua ${item.name} thành công`);
+    if (item.slot) {
+      // tháo đồ cũ
+      const oldKey = u.equip[item.slot];
+      if (oldKey) {
+        const old = SHOP[oldKey];
+        if (old.atk) u.atk -= old.atk;
+        if (old.def) u.def -= old.def;
+        if (old.hp) u.hp -= old.hp;
+        if (old.crit) u.stats.crit -= old.crit;
+        if (old.lifesteal) u.stats.lifesteal -= old.lifesteal;
+      }
+
+      u.equip[item.slot] = key;
+      if (item.atk) u.atk += item.atk;
+      if (item.def) u.def += item.def;
+      if (item.hp) u.hp += item.hp;
+      if (item.crit) u.stats.crit += item.crit;
+      if (item.lifesteal) u.stats.lifesteal += item.lifesteal;
+    }
+
+    save();
+    return send(`✅ Đã mua & trang bị ${item.name}`);
   }
 
-  /* ===== VIP ===== */
-  if (cmd === "vip") {
-    u.vip = true;
+  // ===== EQUIP =====
+  if (cmd === "equip") {
+    return send(
+`🛡 TRANG BỊ
+━━━━━━━━━━━━
+🗡 Kiếm: ${u.equip.kiem ? SHOP[u.equip.kiem].name : "Không"}
+🛡 Giáp: ${u.equip.giap ? SHOP[u.equip.giap].name : "Không"}`
+    );
+  }
+
+  // ===== BOSS =====
+  if (cmd === "boss") {
+    const boss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+    let bossHp = boss.hp;
+    let userHp = u.hp;
+
+    while (bossHp > 0 && userHp > 0) {
+      bossHp -= Math.max(1, u.atk - 5);
+      userHp -= Math.max(1, boss.atk - u.def);
+    }
+
+    if (userHp > 0) {
+      u.vang += boss.reward;
+      if (Math.random() < 0.5) {
+        u.vang += 200;
+      }
+      save();
+      return send(`🏆 Đánh bại ${boss.name}\n💰 +${boss.reward} vàng`);
+    } else {
+      return send(`💀 Thua ${boss.name}, tu luyện thêm đi`);
+    }
+  }
+
+  // ===== PVP =====
+  if (cmd === "pvp") {
+    if (!event.mentions || Object.keys(event.mentions).length === 0)
+      return send("❌ Tag đối thủ");
+
+    const target = Object.keys(event.mentions)[0];
+    init(target);
+
+    const a = u;
+    const b = data[target];
+
+    const aPower = a.atk + a.def + a.hp;
+    const bPower = b.atk + b.def + b.hp;
+
+    if (aPower > bPower) {
+      a.vang += 200;
+      b.vang = Math.max(0, b.vang - 100);
+      save();
+      return send("⚔️ PVP THẮNG! +200 vàng");
+    } else {
+      return send("⚔️ PVP THUA!");
+    }
+  }
+
+  // ===== RESET SEASON =====
+  if (cmd === "reset") {
+    data[uid] = null;
+    delete data[uid];
     save();
-    return send("👑 Kích hoạt VIP (demo)");
+    return send("♻️ Reset tu tiên – bắt đầu mùa mới");
   }
 };
