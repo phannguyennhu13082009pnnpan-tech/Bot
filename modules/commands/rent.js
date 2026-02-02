@@ -7,21 +7,14 @@ const TZ = "Asia/Ho_Chi_Minh";
 const BOT_NAME = "𝓘𝓷𝓼𝓪𝓰𝔂𝓸𝓴 𝓑𝓸𝓽";
 const ADMIN_FB = "https://www.facebook.com/share/1AqqydaH5m/";
 
-const DATA_DIR = path.join(__dirname, "..", "data");
-const RENT_PATH = path.join(DATA_DIR, "rent.json");
-const BILL_PATH = path.join(DATA_DIR, "bill.json");
+const DATA_PATH = path.join(__dirname, "data", "rent.json");
+if (!fs.existsSync(DATA_PATH)) fs.writeFileSync(DATA_PATH, "[]");
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-if (!fs.existsSync(RENT_PATH)) fs.writeFileSync(RENT_PATH, "[]");
-if (!fs.existsSync(BILL_PATH)) fs.writeFileSync(BILL_PATH, "[]");
+let data = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+const save = () =>
+  fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
 
-let rentData = JSON.parse(fs.readFileSync(RENT_PATH));
-let billData = JSON.parse(fs.readFileSync(BILL_PATH));
-
-const saveRent = () =>
-  fs.writeFileSync(RENT_PATH, JSON.stringify(rentData, null, 2));
-const saveBill = () =>
-  fs.writeFileSync(BILL_PATH, JSON.stringify(billData, null, 2));
+/* ================= UTIL ================= */
 
 const daysLeft = end =>
   Math.ceil(
@@ -29,198 +22,175 @@ const daysLeft = end =>
       moment().tz(TZ)) / 86400000
   );
 
-const genKey = () =>
-  "INSAGYOK-RENT-" +
+const makeKey = threadID =>
+  "INS-" +
+  threadID.toString().slice(-4) +
+  "-" +
   Math.random().toString(36).substring(2, 8).toUpperCase();
 
-// ================= CONFIG =================
+const billThue = (month, end, key) => `
+━━━━━━━━━━━━━━━━━━━━━━
+        🧾 BILL THUÊ BOT
+━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 Bot: ${BOT_NAME}
+📦 Gói thuê: ${month} tháng
+🧾 Key: ${key}
+⏰ Hết hạn: ${end}
+
+✅ Bot đã kích hoạt thành công
+📌 Hỗ trợ / gia hạn:
+${ADMIN_FB}
+
+━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+const billHetHan = key => `
+━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️ BOT HẾT HẠN
+━━━━━━━━━━━━━━━━━━━━━━
+
+❌ Gói thuê đã hết hạn
+🧾 Key: ${key}
+
+📌 Để gia hạn bot, vui lòng
+liên hệ Admin tại:
+${ADMIN_FB}
+
+━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+/* ================= CONFIG ================= */
+
 module.exports.config = {
   name: "rent",
-  version: "FINAL-5.0",
+  version: "FULL-4.0",
   hasPermssion: 0,
-  credits: "Insagyok VIP",
-  description: "Thuê bot VIP theo tháng + bill + key",
-  commandCategory: "System",
-  usePrefix: true,
-  cooldowns: 3
+  credits: "full-by-chatgpt",
+  description: "Thuê bot - Gia hạn - Bill - Setname",
+  commandCategory: "Admin",
+  usePrefix: false,
+  usages: "!rent add | info | list | remove | giahan",
+  cooldowns: 2
 };
 
-// ================= CHẶN KHI HẾT HẠN =================
-module.exports.handleEvent = async ({ api, event }) => {
-  if (!event.body) return;
-  const item = rentData.find(i => i.threadID == event.threadID);
-  if (!item) return;
+/* ================= RUN ================= */
 
-  if (daysLeft(item.end) > 0) return;
-
-  api.sendMessage(
-`━━━━━━━━━━━━━━━━━━━━━━
-⛔ BOT ĐÃ HẾT HẠN
-━━━━━━━━━━━━━━━━━━━━━━
-🤖 ${BOT_NAME}
-
-🔒 Toàn bộ lệnh đã bị khóa
-📆 Hạn sử dụng đã kết thúc
-
-━━━━━━━━━━━━━━━━━━━━━━
-🔁 GIA HẠN BOT
-━━━━━━━━━━━━━━━━━━━━━━
-📨 Liên hệ Admin:
-${ADMIN_FB}
-
-━━━━━━━━━━━━━━━━━━━━━━`,
-    event.threadID
-  );
-};
-
-// ================= LỆNH CHÍNH =================
 module.exports.run = async ({ api, event, args }) => {
-  const send = m => api.sendMessage(m, event.threadID);
+  const send = msg => api.sendMessage(msg, event.threadID);
   const isAdmin = global.config.ADMINBOT.includes(event.senderID);
+
   const sub = args[0];
 
-  // ===== USER INFO =====
-  if (!sub || sub === "info") {
-    const item = rentData.find(i => i.threadID == event.threadID);
-    if (!item) return send("❎ Nhóm chưa thuê bot");
+  /* ===== THÀNH VIÊN CHECK INFO ===== */
+  if (sub === "info") {
+    const item = data.find(i => i.threadID == event.threadID);
+    if (!item) return send("❌ Nhóm chưa thuê bot");
 
     const left = daysLeft(item.end);
-    return send(
-`━━━━━━━━━━━━━━
-📌 THÔNG TIN THUÊ BOT
-━━━━━━━━━━━━━━
-🤖 ${BOT_NAME}
-📆 Từ: ${item.start}
-📆 Đến: ${item.end}
-⏳ Còn: ${left > 0 ? left + " ngày" : "HẾT HẠN"}
-━━━━━━━━━━━━━━`
-    );
+    if (left <= 0) return send(billHetHan(item.key));
+
+    return send(`
+━━━━━━━━━━━━━━━━━━━━━━
+        📌 THUÊ BOT
+━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 Bot: ${BOT_NAME}
+🧾 Key: ${item.key}
+📅 Từ: ${item.start}
+⏰ Đến: ${item.end}
+⌛ Còn: ${left} ngày
+
+━━━━━━━━━━━━━━━━━━━━━━
+`);
   }
 
-  // ===== USER GIA HẠN =====
+  /* ===== THÀNH VIÊN XIN GIA HẠN ===== */
   if (sub === "giahan") {
-    return send(
-`━━━━━━━━━━━━━━
-🔁 GIA HẠN BOT
-━━━━━━━━━━━━━━
-📨 Liên hệ Admin:
-${ADMIN_FB}
-━━━━━━━━━━━━━━`
-    );
+    const item = data.find(i => i.threadID == event.threadID);
+    if (!item) return send("❌ Nhóm chưa thuê bot");
+
+    return send(billHetHan(item.key));
   }
 
-  // ===== THUÊ BOT THEO THÁNG =====
+  /* ===== ADMIN ===== */
+  if (!isAdmin) return;
+
+  /* !rent add 1T */
   if (sub === "add") {
-    if (!isAdmin)
-      return send("❌ Chỉ admin bot mới được thuê bot");
+    const pack = args[1];
+    if (!pack || !pack.endsWith("T"))
+      return send("❎ Ví dụ: !rent add 1T");
 
-    const time = args[1];
-    if (!time || !/^\d+T$/i.test(time))
-      return send("❎ Dùng: !rent add 1T | 3T | 12T");
-
-    const months = parseInt(time);
-    const threadID = event.threadID;
-    const userID = event.senderID;
-
-    if (rentData.find(i => i.threadID == threadID))
-      return send("⚠️ Nhóm này đã thuê bot");
+    const month = parseInt(pack);
+    const old = data.find(i => i.threadID == event.threadID);
 
     const start = moment().tz(TZ);
-    const end = start.clone().add(months, "months");
+    const end = start.clone().add(month, "months").format("DD/MM/YYYY");
 
-    const startStr = start.format("DD/MM/YYYY");
-    const endStr = end.format("DD/MM/YYYY");
+    if (old) {
+      old.end = moment(old.end, "DD/MM/YYYY")
+        .add(month, "months")
+        .format("DD/MM/YYYY");
+      save();
+      return send(billThue(month, old.end, old.key));
+    }
 
-    rentData.push({
-      threadID,
-      userID,
-      start: startStr,
-      end: endStr
+    const key = makeKey(event.threadID);
+    data.push({
+      threadID: event.threadID,
+      userID: event.senderID,
+      start: start.format("DD/MM/YYYY"),
+      end,
+      key
     });
-
-    const key = genKey();
-    billData.push({
-      key,
-      threadID,
-      userID,
-      start: startStr,
-      end: endStr,
-      months,
-      status: "ACTIVE",
-      created: moment().tz(TZ).format("HH:mm DD/MM/YYYY")
-    });
-
-    saveRent();
-    saveBill();
-
-    return send(
-`━━━━━━━━━━━━━━━━━━━━━━
-🧾 BILL THUÊ BOT VIP
-━━━━━━━━━━━━━━━━━━━━━━
-🤖 ${BOT_NAME}
-
-🔑 Mã bill: ${key}
-🆔 ThreadID: ${threadID}
-👤 Người thuê: ${userID}
-
-📆 Bắt đầu: ${startStr}
-📆 Kết thúc: ${endStr}
-⏳ Thời hạn: ${months} tháng
-📌 Trạng thái: ACTIVE
-━━━━━━━━━━━━━━━━━━━━━━`
-    );
+    save();
+    return send(billThue(month, end, key));
   }
 
-  // ===== ADMIN BILL =====
-  if (isAdmin && sub === "bill") {
-    const key = args[1];
-    const bill = billData.find(b => b.key === key);
-    if (!bill) return send("❎ Không tìm thấy bill");
-
-    return send(
-`━━━━━━━━━━━━━━
-🧾 BILL BOT
-━━━━━━━━━━━━━━
-🔑 ${bill.key}
-🆔 ${bill.threadID}
-👤 ${bill.userID}
-📆 ${bill.start} → ${bill.end}
-📌 ${bill.status}
-━━━━━━━━━━━━━━`
-    );
-  }
-
-  // ===== ADMIN BILL LIST =====
-  if (isAdmin && sub === "billlist") {
-    if (!billData.length) return send("❎ Chưa có bill");
-
-    let msg = "━━━━━━━━━━━━━━\n📋 BILL LIST\n━━━━━━━━━━━━━━\n";
-    billData.forEach((b, i) => {
-      msg += `${i + 1}. ${b.key} | ${b.status}\n`;
+  /* !rent list */
+  if (sub === "list") {
+    if (!data.length) return send("❌ Không có nhóm thuê bot");
+    let msg = "📋 DANH SÁCH THUÊ BOT\n\n";
+    data.forEach((i, idx) => {
+      const d = daysLeft(i.end);
+      msg += `${idx + 1}. ${i.threadID} | ${
+        d > 0 ? d + " ngày" : "Hết hạn"
+      }\n`;
     });
     return send(msg);
   }
+
+  /* !rent remove <stt> */
+  if (sub === "remove") {
+    const stt = parseInt(args[1]);
+    if (!stt || !data[stt - 1]) return send("❌ STT không hợp lệ");
+    data.splice(stt - 1, 1);
+    save();
+    return send("✅ Đã xóa nhóm thuê bot");
+  }
 };
 
-// ================= CRON 00:00 =================
+/* ================= CRON 00:00 ================= */
+
 cron.schedule(
   "0 0 * * *",
   async () => {
     const api = global.client.api;
     const botID = api.getCurrentUserID();
 
-    for (const r of rentData) {
-      const left = daysLeft(r.end);
-      const nick =
-        left > 0
-          ? `『 ! 』 ⪼ ${BOT_NAME} | HSD: ${left} ngày`
-          : `『 ! 』 ⪼ ${BOT_NAME} | HẾT HẠN`;
+    for (const item of data) {
+      const left = daysLeft(item.end);
+      if (left <= 0) continue;
 
+      const nick = `『 ! 』 ⪼ ${BOT_NAME} | HSD: ${left} ngày`;
       try {
-        await api.changeNickname(nick, r.threadID, botID);
+        await api.changeNickname(nick, item.threadID, botID);
       } catch {}
     }
-    console.log("✅ Rent cron OK");
+
+    save();
+    console.log("✅ RENT CRON 00:00 OK");
   },
   { timezone: TZ }
 );
