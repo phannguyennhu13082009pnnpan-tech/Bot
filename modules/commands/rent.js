@@ -208,16 +208,15 @@ cron.schedule(
     const api = global.client.api;
 
     for (const r of rents) {
-      const left = daysLeft(r.end);
-
       try {
-        if (left > 0) {
+        if (r.remain > 0) {
+          r.remain -= 1; // ✅ TRỪ NGÀY THẬT
+
           await api.sendMessage(
 `⏰ THÔNG BÁO THUÊ BOT
 ━━━━━━━━━━━━━━
 🤖 Bot: ${BOT_NAME}
-📅 Còn lại: ${left} ngày
-🗓️ Hết hạn: ${r.end}
+📅 Còn lại: ${r.remain} ngày
 ━━━━━━━━━━━━━━`,
             r.threadID
           );
@@ -225,7 +224,7 @@ cron.schedule(
           await api.sendMessage(
 `❌ BOT ĐÃ HẾT HẠN
 ━━━━━━━━━━━━━━
-⛔ Bot hiện đã hết hạn sử dụng
+⛔ Bot đã hết hạn sử dụng
 📌 Gia hạn tại admin:
 ${ADMIN_FB}
 ━━━━━━━━━━━━━━`,
@@ -235,8 +234,8 @@ ${ADMIN_FB}
       } catch {}
     }
 
-    save();
-    console.log("✔ Rent auto notify 00:00 chạy xong");
+    save(); // 👈 BẮT BUỘC
+    console.log("✔ Rent cron 00:00 trừ ngày OK");
   },
   { timezone: TZ }
 );
