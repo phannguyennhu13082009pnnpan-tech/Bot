@@ -78,9 +78,16 @@ module.exports.config = {
 
 module.exports.run = async ({ api, event, args }) => {
   const send = msg => api.sendMessage(msg, event.threadID);
-  const isAdmin = global.config.ADMINBOT.includes(event.senderID);
 
+  const group = data.find(i => i.threadID == event.threadID);
+
+  // ❌ CHƯA DUYỆT → IM LẶNG
+  if (!group || group.approved !== true) return;
+
+  const isAdmin = global.config.ADMINBOT.includes(event.senderID);
   const sub = args[0];
+
+  // code rent phía dưới giữ nguyên
 
   /* ===== THÀNH VIÊN CHECK INFO ===== */
   if (sub === "info") {
