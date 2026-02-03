@@ -32,34 +32,24 @@ module.exports.handleEvent = async ({ api, event }) => {
 
     // tìm nhóm chưa duyệt
     const group = data.find(
-      i =>
-        i.threadID == event.threadID &&
-        i.approved === false &&
-        i.approveMessageID === event.messageID
-    );
+  i =>
+    i.approved === false &&
+    i.approveMessageID === event.messageID
+);
 
-    if (!group) return;
+if (!group) return;
 
-    // duyệt
-    group.approved = true;
-    delete group.approveMessageID;
+group.approved = true;
+delete group.approveMessageID;
+saveData(data);
 
-    saveData(data);
+// gửi về GROUP, không phải inbox admin
+api.sendMessage(
+`✅ ADMIN ĐÃ DUYỆT BOT
 
-    // thông báo duyệt
-    api.sendMessage(
-      `✅ NHÓM ĐÃ ĐƯỢC DUYỆT
+🤖 Bot được phép hoạt động tại nhóm này
+📌 Trạng thái: CHƯA THUÊ (chỉ dùng lệnh giới hạn)
 
-📌 Trạng thái: ĐÃ DUYỆT
-⚠️ Lưu ý:
-- Nhóm CHƯA thuê bot
-- Chỉ được dùng lệnh cơ bản (nếu có)
-- Muốn dùng full → liên hệ admin để thuê bot
-
-💬 Admin bot đã xác nhận`,
-      event.threadID
-    );
-  } catch (e) {
-    console.log("approveRent error:", e);
-  }
-};
+👉 Liên hệ admin để thuê bot`,
+group.threadID
+);
