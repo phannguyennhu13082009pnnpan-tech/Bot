@@ -53,3 +53,45 @@ api.sendMessage(
 👉 Liên hệ admin để thuê bot`,
 group.threadID
 );
+// 2️⃣ chờ 10 giây rồi gửi MENU (tránh spam)
+    setTimeout(() => {
+      api.sendMessage(
+`✨🤖 MENU THUÊ BOT TỰ ĐỘNG 🤖✨
+━━━━━━━━━━━━━━━━━━
+📌 QUYỀN LỢI KHI THUÊ BOT
+✔️ Bot hoạt động 24/7 – ổn định
+✔️ Phản hồi nhanh, ít lỗi
+✔️ Hỗ trợ & cập nhật thường xuyên
+✔️ Gia hạn linh hoạt theo thời gian thuê
+━━━━━━━━━━━━━━━━━━
+📦 BẢNG GIÁ THUÊ BOT
+
+🌱 GÓI CHÀO
+⏳ 1 tháng: FREE
+⏳ 6 tháng: 30.000đ
+⏳ 12 tháng: 60.000đ
+
+━━━━━━━━━━━━━━━━━━
+⚙️ GÓI THƯỜNG
+⏳ 1 tháng: 10.000đ
+⏳ 6 tháng: 50.000đ
+⏳ 12 tháng: 70.000đ
+
+━━━━━━━━━━━━━━━━━━
+👑 GÓI VIP
+⏳ 1 tháng: 30.000đ
+⏳ 6 tháng: 140.000đ
+⏳ 12 tháng: 250.000đ
+
+━━━━━━━━━━━━━━━━━━
+📞 LIÊN HỆ ADMIN
+👉 https://www.facebook.com/share/1AqqydaH5m/
+━━━━━━━━━━━━━━━━━━`,
+        group.threadID
+      );
+    }, 10 * 1000); // 10 giây
+
+  } catch (e) {
+    console.log("approveRent error:", e);
+  }
+};
