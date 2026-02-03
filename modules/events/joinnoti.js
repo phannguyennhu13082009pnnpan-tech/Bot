@@ -37,9 +37,27 @@ module.exports.run = async function({ api, event, Users  , Threads}) {
 	if (event.logMessageData.addedParticipants.some(i => i.userFbId == api.getCurrentUserID())) {
 		api.changeNickname(`[ ${global.config.PREFIX} ] • ${(!global.config.BOTNAME) ? "Made by Khôi" : global.config.BOTNAME}`, threadID, api.getCurrentUserID());
 		const fs = require("fs");
-    var mlg="Kết nối thành công\nĐã load toàn bộ lệnh và người dùng trong nhóm.\n❌ Nếu nhóm của bạn chưa kích hoạt sử dụng bot, vui lòng sử dụng lệnh 'callad' để liên hệ Admin.\n─────────────────\n🌐 Facebook: https://www.facebook.com/100018277053087"
+    var mlg="✨🤖 THUÊ BOT TỰ ĐỘNG 🤖✨\n\n" +
+"━━━━━━━━━━━━━━━━━━\n\n" +
+"🌸 Chào mừng bạn đã thêm bot vào nhóm 🌸\n\n\n" +
+"⚠️ NHÓM NÀY CHƯA THUÊ BOT\n\n\n" +
+"📌 QUYỀN LỢI KHI THUÊ:\n\n" +
+"✔️ Sử dụng toàn bộ lệnh bot\n" +
+"✔️ Bot hoạt động 24/7\n" +
+"✔️ Hỗ trợ & cập nhật liên tục\n" +
+"✔️ Gia hạn linh hoạt theo ngày / tháng\n\n\n" +
+"💰 GÓI THUÊ:\n\n" +
+"🟢 1 Tháng  (30 ngày)\n" +
+"🟢 Gia hạn theo ngày (vd: 40 ngày)\n\n\n" +
+"🛒 CÚ PHÁP:\n\n" +
+"➤ !rent add 1T\n" +
+"➤ !rent add 40\n\n\n" +
+"📞 LIÊN HỆ ADMIN:\n\n" +
+"👉 https://www.facebook.com/share/1AqqydaH5m/\n\n" +
+"━━━━━━━━━━━━━━━━━━\n\n" +
+"❤️ Cảm ơn đã sử dụng bot ❤️"
     	return api.sendMessage(threadID,async () => {
-await api.shareContact(`${mlg}`, 100018277053087, threadID);
+await api.shareContact(`${mlg}`,61561101096216, threadID);
 });
 
 	}
