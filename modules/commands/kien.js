@@ -1,57 +1,69 @@
 module.exports.config = {
   name: "kienno",
-  hasPermission: 0,
-  description: "Kiện nợ",
-  commandCategory: "Tòa Án",
-  usages: "!kienno @tag | reply",
-  cooldowns: 10,
-  usePrefix: true
+  version: "3.0.0",
+  hasPermssion: 0,
+  credits: "ChatGPT",
+  description: "Kiện nợ theo BILL",
+  commandCategory: "Game",
+  usages: "!kienno <BILL_KEY>",
+  cooldowns: 2
 };
 
-module.exports.run = async ({ api, event, Currencies }) => {
-  const fs = require("fs-extra");
-  const path = require("path");
-  const DATA = path.join(__dirname, "cache/data/toaan.json");
+const fs = require("fs");
+const path = require("path");
+const BILL_PATH = path.join(__dirname, "cache/data/bill.json");
 
-  const args = event.args || [];
+function loadBill() {
+  if (!fs.existsSync(BILL_PATH))
+    fs.writeFileSync(BILL_PATH, JSON.stringify({ bills: [] }, null, 2));
+  return JSON.parse(fs.readFileSync(BILL_PATH));
+}
 
-  let target =
-    event.type === "message_reply"
-      ? event.messageReply.senderID
-      : Object.keys(event.mentions || {})[0];
+module.exports.run = async ({ api, event }) => {
+  const { threadID, senderID, body } = event;
+  const args = body.split(/\s+/);
+  if (!args[1])
+    return api.sendMessage("❌ Thiếu BILL!\n👉 !kienno <BILL_KEY>", threadID);
 
-  if (!target)
-    return api.sendMessage("❌ Phải tag hoặc reply người nợ!", event.threadID);
+  const billKey = args[1];
+  const db = loadBill();
+  const bill = db.bills.find(b => b.id === billKey);
 
-  const db = JSON.parse(fs.readFileSync(DATA));
-  const loan = db.loans.find(l => l.borrower == target && !l.sued);
+  if (!bill)
+    return api.sendMessage("❌ BILL không tồn tại!", threadID);
+  if (bill.paid)
+    return api.sendMessage("⚠️ BILL này đã được trả!", threadID);
+  if (bill.threadID !== threadID)
+    return api.sendMessage("❌ BILL không thuộc box này!", threadID);
 
-  if (!loan)
-    return api.sendMessage("❌ Không có khoản vay hợp lệ!", event.threadID);
+  // chỉ người cho vay hoặc hệ thống mới được kiện
+  if (bill.type === "user" && bill.lender !== senderID)
+    return api.sendMessage("❌ Bạn không có quyền kiện BILL này!", threadID);
 
-  let rate = 50 + (db.bribe[event.senderID] || 0);
-  let roll = Math.random() * 100;
+  // ===== XỬ ÁN (98% THẮNG) =====
+  const winRate = 0.98;
+  const isWin = Math.random() < winRate;
 
-  loan.sued = true;
-  db.bribe[event.senderID] = 0;
-
-  if (roll < rate && Math.random() < 0.98) {
-    const debt = (await Currencies.getData(target)).money;
-    await Currencies.decreaseMoney(target, debt);
-    await Currencies.increaseMoney(event.senderID, debt);
-
-    if (!db.wanted[target]) db.wanted[target] = { count: 0 };
-    db.wanted[target].count++;
-
-    if (db.wanted[target].count >= 3)
-      db.blacklist.push(target);
-
-    api.sendMessage(`⚖️ PHÁN QUYẾT\n✅ NGUYÊN ĐƠN THẮNG\n💸 Tịch thu ${debt}$`, event.threadID);
+  if (isWin) {
+    return api.sendMessage(
+`⚖️ KIỆN NỢ THÀNH CÔNG
+━━━━━━━━━━━━━━
+🧾 BILL: ${bill.id}
+💰 Số tiền: ${bill.money.toLocaleString()}$
+📌 Phán quyết:
+👉 Người nợ phải trả NGAY
+👉 Có thể bị truy nã / khóa vay`,
+      threadID
+    );
   } else {
-    const comp = Math.floor(loan.money / 2);
-    await Currencies.increaseMoney(event.senderID, comp);
-    api.sendMessage(`⚖️ PHÁN QUYẾT\n❌ KIỆN THẤT BẠI\n💵 Bồi thường ${comp}$`, event.threadID);
+    const compensation = Math.floor(bill.money / 2);
+    return api.sendMessage(
+`⚖️ KIỆN NỢ THẤT BẠI
+━━━━━━━━━━━━━━
+🧾 BILL: ${bill.id}
+💸 Bồi thường: ${compensation.toLocaleString()}$
+📌 Án phí do hệ thống chi trả`,
+      threadID
+    );
   }
-
-  fs.writeFileSync(DATA, JSON.stringify(db, null, 2));
 };
