@@ -5,7 +5,7 @@ module.exports.config = {
   commandCategory: "Tòa Án",
   usages: "kien tag/reply",
   cooldowns: 10,
-  usePrefix: false
+  usePrefix: true
 };
 
 module.exports.run = async ({ api, event, Currencies, Users }) => {
