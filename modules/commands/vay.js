@@ -1,97 +1,120 @@
-const fs = require("fs-extra");
-const path = require("path");
-
-const DATA_PATH = path.join(__dirname, "cache/data/toaan.json");
-
-// init data
-if (!fs.existsSync(DATA_PATH)) {
-  fs.ensureFileSync(DATA_PATH);
-  fs.writeJsonSync(
-    DATA_PATH,
-    {
-      boxes: {}
-    },
-    { spaces: 2 }
-  );
-}
-
 module.exports.config = {
   name: "vay",
   version: "3.0.0",
-  hasPermission: 0,
-  credits: "ChatGPT x Khôi",
-  description: "Vay tiền hệ thống hoặc người chơi (có tòa án)",
-  commandCategory: "Tài Chính",
-  usages: "vay <số tiền> | vay <số tiền> @tag",
-  cooldowns: 5,
-  usePrefix: false
+  hasPermssion: 0,
+  credits: "ChatGPT",
+  description: "Vay hệ thống hoặc người chơi (tạo BILL)",
+  commandCategory: "Game",
+  usages: "!vay system <tiền> | !vay user <tiền> @tag/reply",
+  cooldowns: 2
 };
 
-module.exports.run = async ({ api, event, args, Currencies, Users }) => {
-  const { threadID, senderID, mentions } = event;
-  const send = (msg) => api.sendMessage(msg, threadID);
+const fs = require("fs");
+const path = require("path");
+const BILL_PATH = path.join(__dirname, "cache/data/bill.json");
 
-  const db = fs.readJsonSync(DATA_PATH);
+function loadBill() {
+  if (!fs.existsSync(BILL_PATH))
+    fs.writeFileSync(BILL_PATH, JSON.stringify({ bills: [] }, null, 2));
+  return JSON.parse(fs.readFileSync(BILL_PATH));
+}
+function saveBill(data) {
+  fs.writeFileSync(BILL_PATH, JSON.stringify(data, null, 2));
+}
 
-  // init box
-  if (!db.boxes[threadID]) {
-    db.boxes[threadID] = {
-      wanted: {},
-      blacklist: []
+module.exports.run = async ({ api, event, args, Currencies }) => {
+  const { threadID, senderID, messageReply, mentions } = event;
+  if (!args[0] || !args[1]) {
+    return api.sendMessage(
+`💸 MENU VAY
+━━━━━━━━━━━━━━
+!vay system <tiền>
+!vay user <tiền> @tag
+!reply + !vay user <tiền>`,
+      threadID
+    );
+  }
+
+  const type = args[0].toLowerCase();
+  const money = parseInt(args[1]);
+  if (!money || money <= 0)
+    return api.sendMessage("❌ Số tiền không hợp lệ!", threadID);
+
+  const db = loadBill();
+
+  // ===== VAY HỆ THỐNG =====
+  if (type === "system") {
+    await Currencies.increaseMoney(senderID, money);
+
+    const bill = {
+      id: `BILL-SYS-${Date.now()}-${threadID}`,
+      type: "system",
+      borrower: senderID,
+      lender: "hethong",
+      money,
+      threadID,
+      time: Date.now(),
+      paid: false
     };
+
+    db.bills.push(bill);
+    saveBill(db);
+
+    return api.sendMessage(
+`🏦 VAY HỆ THỐNG THÀNH CÔNG
+━━━━━━━━━━━━━━
+💰 ${money.toLocaleString()}$
+🧾 BILL: ${bill.id}
+⚠️ Lưu bill để tránh tranh chấp`,
+      threadID
+    );
   }
 
-  const box = db.boxes[threadID];
+  // ===== VAY NGƯỜI =====
+  if (type === "user") {
+    let targetID;
+    if (messageReply) targetID = messageReply.senderID;
+    else if (Object.keys(mentions).length > 0)
+      targetID = Object.keys(mentions)[0];
 
-  // ===== CHECK CẤM VAY =====
-  if (box.blacklist.includes(senderID)) {
-    return send("⛔ Bạn đã bị CẤM VAY VĨNH VIỄN trong box này!");
-  }
+    if (!targetID)
+      return api.sendMessage("❌ Phải tag hoặc reply người cho vay!", threadID);
+    if (targetID === senderID)
+      return api.sendMessage("❌ Không thể tự vay chính mình!", threadID);
 
-  if (box.wanted[senderID] && box.wanted[senderID].count >= 3) {
-    return send("🚨 Bạn đang bị truy nã nặng, KHÔNG ĐƯỢC PHÉP VAY!");
-  }
-
-  // ===== PARSE MONEY =====
-  let raw = args[0];
-  if (!raw)
-    return send("❌ Vui lòng nhập số tiền cần vay!");
-
-  raw = raw
-    .toLowerCase()
-    .replace(/k/g, "000")
-    .replace(/,/g, "")
-    .trim();
-
-  const money = Number(raw);
-
-  if (isNaN(money) || money <= 0)
-    return send("❌ Số tiền không hợp lệ!");
-
-  // ===== XÁC ĐỊNH NGƯỜI CHO VAY =====
-  let lender = "hethong";
-  let lenderName = "🏦 HỆ THỐNG";
-
-  if (Object.keys(mentions).length > 0) {
-    lender = Object.keys(mentions)[0];
-    lenderName = await Users.getNameUser(lender);
-
-    if (lender === senderID)
-      return send("❌ Không thể tự vay chính mình!");
-
-    const lenderMoney = (await Currencies.getData(lender)).money || 0;
+    const lenderMoney = (await Currencies.getData(targetID)).money || 0;
     if (lenderMoney < money)
-      return send("❌ Người cho vay không đủ tiền!");
+      return api.sendMessage("❌ Người cho vay không đủ tiền!", threadID);
+
+    await Currencies.decreaseMoney(targetID, money);
+    await Currencies.increaseMoney(senderID, money);
+
+    const bill = {
+      id: `BILL-USER-${Date.now()}-${threadID}`,
+      type: "user",
+      borrower: senderID,
+      lender: targetID,
+      money,
+      threadID,
+      time: Date.now(),
+      paid: false
+    };
+
+    db.bills.push(bill);
+    saveBill(db);
+
+    return api.sendMessage(
+`🤝 VAY NGƯỜI CHƠI THÀNH CÔNG
+━━━━━━━━━━━━━━
+💰 ${money.toLocaleString()}$
+🧾 BILL: ${bill.id}
+⚠️ Không trả có thể bị kiện`,
+      threadID
+    );
   }
 
-  // ===== CỘNG TIỀN =====
-  await Currencies.increaseMoney(senderID, money);
-
-  if (lender !== "hethong") {
-    await Currencies.decreaseMoney(lender, money);
-  }
-
-  // ===== LƯU LOG =====
+  return api.sendMessage("❌ Cú pháp sai! Gõ !vay để xem menu", threadID);
+};  // ===== LƯU LOG =====
   if (!db.boxes[threadID].loans)
     db.boxes[threadID].loans = [];
 
