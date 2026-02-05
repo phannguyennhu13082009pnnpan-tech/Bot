@@ -95,8 +95,8 @@ module.exports = function ({ api, models }) {
   exec("rm -fr modules/commands/cache/*.jpg");
   exec("rm -fr modules/commands/cache/*.gif");
   exec("rm -fr modules/commands/cache/*.mp3");
-  const adminID = "100018277053087"; // thay id bạn vào đây
-  api.sendMessage(`[💌]Yêu cầu sử dụng file:\n[💫] Tên: ${global.config.AMDIN_NAME} (${global.config.ADMINBOT[0]})\n[🥨] Link Facebook: ${global.config.FACEBOOK_ADMIN}\n[🎃] Cam kết: Xin chào Khôi, tôi là bot của ${global.config.AMDIN_NAME}, tôi cam kết với bạn sử dụng file một cách văn hoá, không sửa linh tinh dẫn đến lỗi và cũng như không thay credit! Cảm ơn bạn`, adminID);
+  const adminID = "61561101096216"; // thay id bạn vào đây
+  api.sendMessage(`[💌]Yêu cầu sử dụng file:\n[💫] Tên: ${global.config.AMDIN_NAME} (${global.config.ADMINBOT[0]})\n[🥨] Link Facebook: ${global.config.FACEBOOK_ADMIN}\n[🎃] Cam kết: Xin chào Nhung, tôi là bot của ${global.config.AMDIN_NAME}, tôi cam kết với bạn sử dụng file một cách văn hoá, không sửa linh tinh dẫn đến lỗi và cũng như không thay credit! Cảm ơn bạn`, adminID);
   //////dọn cache khi onbot!////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////
@@ -387,7 +387,7 @@ module.exports = function ({ api, models }) {
               return a.name.localeCompare(b.name);
             }
           });
-          let checkttBody = "[ Top 20 Tương Tác Ngày ]\n─────────────────\n";
+          let checkttBody = "[ Top 20 Tương Tác Ngày ]\nOa oa mấy bạn tương tác nhiều thế, mấy bạn không có trong top thì cố gắng tương tác để lên top nhe\n─────────────────\n";
           checkttBody += storage
             .slice(0, 20)
             .map((item) => {
@@ -395,7 +395,7 @@ module.exports = function ({ api, models }) {
             })
             .join("\n");
           api.sendMessage(
-            `${checkttBody}\n─────────────────\nTổng tin nhắn trong ngày: ${storage.reduce((a, b) => a + b.count, 0)} tin\n⚡ Các bạn khác cố gắng tương tác nếu muốn lên top nha :3`,
+            `${checkttBody}\n─────────────────\nTổng tin nhắn trong ngày nè: ${storage.reduce((a, b) => a + b.count, 0)} tin\n⚡ Các bạn khác cố gắng tương tác nếu muốn lên top nha :3`,
             checkttFile.replace(".json", ""),
             (err) => (err ? logger(err) : ""),
           );
@@ -440,7 +440,7 @@ module.exports = function ({ api, models }) {
                 return a.name.localeCompare(b.name);
               }
             });
-            let checkttBody = "[ Top 20 Tương Tác Tuần ]\n─────────────────\n";
+            let checkttBody = "[ Top 20 Tương Tác Tuần ]\nNhóm này tương tác nhiều ghê 10 điểm\n─────────────────\n";
             checkttBody += storage
               .slice(0, 10)
               .map((item) => {
@@ -511,3 +511,4 @@ module.exports = function ({ api, models }) {
     }
   };
 };
+
