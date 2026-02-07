@@ -1,44 +1,53 @@
 module.exports = function ({ api, models, Users, Threads, Currencies }) {
-    return function ({ event }) {
-        const { handleReaction, commands } = global.client;
-        const { messageID, threadID } = event;
-        if (handleReaction.length !== 0) {
-            const indexOfHandle = handleReaction.findIndex(e => e.messageID == messageID);
-            if (indexOfHandle < 0) return;
-            const indexOfMessage = handleReaction[indexOfHandle];
-            const handleNeedExec = commands.get(indexOfMessage.name);
+    const fs = require("fs");
+const pathApproved = __dirname + "/approvedThreads.json";
+const pathPending = __dirname + "/pendingApprove.json";
 
-            if (!handleNeedExec) return api.sendMessage(global.getText('handleReaction', 'missingValue'), threadID, messageID);
-            try {
-                var getText2;
-                if (handleNeedExec.languages && typeof handleNeedExec.languages == 'object') 
-                	getText2 = (...value) => {
-                    const react = handleNeedExec.languages || {};
-                    if (!react.hasOwnProperty(global.config.language)) 
-                    	return api.sendMessage(global.getText('handleCommand', 'notFoundLanguage', handleNeedExec.config.name), threadID, messageID);
-                    var lang = handleNeedExec.languages[global.config.language][value[0]] || '';
-                    for (var i = value.length; i > 0x2 * -0xb7d + 0x2111 * 0x1 + -0xa17; i--) {
-                        const expReg = RegExp('%' + i, 'g');
-                        lang = lang.replace(expReg, value[i]);
-                    }
-                    return lang;
-                };
-                else getText2 = () => {};
-                const Obj = {};
-                Obj.api= api 
-                Obj.event = event 
-                Obj.models = models
-                Obj.Users = Users
-                Obj.Threads = Threads
-                Obj.Currencies = Currencies
-                Obj.handleReaction = indexOfMessage
-                Obj.models= models 
-                Obj.getText = getText2
-                handleNeedExec.handleReaction(Obj);
-                return;
-            } catch (error) {
-                return api.sendMessage(global.getText('handleReaction', 'executeError', error), threadID, messageID);
-            }
-        }
-    };
-};
+const ADMIN_ID = "61561101096216"; // 🔴 UID ADMIN
+
+let approved = fs.existsSync(pathApproved)
+  ? JSON.parse(fs.readFileSync(pathApproved))
+  : [];
+
+let pending = fs.existsSync(pathPending)
+  ? JSON.parse(fs.readFileSync(pathPending))
+  : {};
+
+// ❌ Box chưa duyệt
+if (!approved.includes(event.threadID)) {
+
+  // 📩 Gửi yêu cầu duyệt cho admin (chỉ 1 lần)
+  if (!Object.values(pending).includes(event.threadID)) {
+    api.getThreadInfo(event.threadID, (err, info) => {
+      if (err) return;
+
+      api.sendMessage(
+`🔔 YÊU CẦU DUYỆT BOX
+━━━━━━━━━━━━━━
+👥 Box: ${info.threadName || "Không tên"}
+🆔 ThreadID: ${event.threadID}
+
+👉 Admin thả 👍 hoặc ❤️ vào tin này để duyệt`,
+        ADMIN_ID,
+        (e, msg) => {
+          if (!e) {
+            pending[msg.messageID] = event.threadID;
+            fs.writeFileSync(pathPending, JSON.stringify(pending, null, 2));
+          
+              api.sendMessage(
+`┏━━━━━━━━━━━━━━━━━━━━━━┓
+┃   ✅ BOX ĐÃ ĐƯỢC DUYỆT   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━┛
+
+🎉 Quyền sử dụng bot đã được kích hoạt
+🤖 Bot bắt đầu hoạt động trong box này
+
+━━━━━━━━━━━━━━━━━━━━━━
+💎 Để sử dụng đầy đủ tính năng:
+👉 Vui lòng **thuê bot của Admin**
+📩 Liên hệ Admin để được hỗ trợ
+
+🙏 Cảm ơn đã tin tưởng & sử dụng`,
+  approveThreadID
+                  }
+            
